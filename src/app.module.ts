@@ -16,12 +16,20 @@ import { error } from "console";
       sortSchema: true,
       playground: true,
       formatError: (error) => {
-        return {
+        const graphQLFormattedError = {
           message: error.message,
           extensions: {
-            code: error.extensions?.code || "INTERNAL_SERVER_ERROR",
+            code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
+            timestamp: new Date().toISOString(),
+            path: error.path?.join('.'),
+            exception: error.extensions?.exception,
           },
         };
+        
+        // Log error for monitoring
+        console.error('GraphQL Error:', JSON.stringify(graphQLFormattedError, null, 2));
+        
+        return graphQLFormattedError;
       },
     }),
     TypeOrmModule.forRootAsync({
@@ -34,7 +42,7 @@ import { error } from "console";
         username: config.get<string>("POSTGRES_USER"),
         password: config.get<string>("POSTGRES_PASSWORD"),
         database: config.get<string>("POSTGRES_DB"),
-        entities: [__dirname + `dist/**/*.entity{.ts,.js}`],
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
         logging: false,

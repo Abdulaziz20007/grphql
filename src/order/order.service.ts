@@ -13,9 +13,23 @@ export class OrderService {
     @InjectRepository(Order) private readonly orderRepo: Repository<Order>
   ) {}
   async create(createOrderInput: CreateOrderInput, customer: Customer) {
-    const newOrder = this.orderRepo.create({ ...createOrderInput, customer });
-    console.log(newOrder);
-    return this.orderRepo.save(newOrder);
+    try {
+      const newOrder = this.orderRepo.create({ 
+        ...createOrderInput, 
+        customer,
+        price: Number(createOrderInput.price),
+        quantity: Number(createOrderInput.quantity)
+      });
+      
+      return await this.orderRepo.save(newOrder);
+    } catch (error) {
+      throw new GraphQLError('Failed to create order', {
+        extensions: { 
+          code: 'ORDER_CREATION_FAILED',
+          originalError: error.message 
+        }
+      });
+    }
   }
 
   findAll() {

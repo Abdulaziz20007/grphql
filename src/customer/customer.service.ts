@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, InternalServerErrorException } from "@nestjs/common";
 import { CreateCustomerInput } from "./dto/create-customer.input";
 import { UpdateCustomerInput } from "./dto/update-customer.input";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -12,18 +12,22 @@ export class CustomerService {
     private readonly customerRepo: Repository<Customer>
   ) {}
 
-  /** Create a new customer */
   async create(createCustomerInput: CreateCustomerInput): Promise<Customer> {
     const newCustomer = this.customerRepo.create(createCustomerInput);
     return await this.customerRepo.save(newCustomer);
   }
 
-  /** Get all customers */
   async findAll(): Promise<Customer[]> {
-    return await this.customerRepo.find({ relations: ["orders"] });
+    try {
+      return await this.customerRepo.find({ 
+        relations: ["orders"],
+        order: { id: 'DESC' } 
+      });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to fetch customers');
+    }
   }
 
-  /** Find a customer by ID */
   async findOne(id: number): Promise<Customer> {
     const customer = await this.customerRepo.findOne({ where: { id }  ,relations :["orders"]});
     if (!customer) {
@@ -32,7 +36,6 @@ export class CustomerService {
     return customer;
   }
 
-  /** Update a customer */
   async update(
     id: number,
     updateCustomerInput: UpdateCustomerInput
@@ -50,8 +53,15 @@ export class CustomerService {
   }
 
   async remove(id: number): Promise<boolean> {
-    const customer = await this.findOne(id); // Ensure it exists before deletion
-    await this.customerRepo.softRemove(customer); // Soft delete (keeps record in DB)
-    return true;
+    try {
+      const customer = await this.findOne(id);
+      await this.customerRepo.softRemove(customer);
+      return true;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to remove customer');
+    }
   }
 }
